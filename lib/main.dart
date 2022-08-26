@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import './components/modal.dart';
+import './routes/VideoPlayer.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
@@ -8,29 +9,10 @@ bool shouldUseFirestoreEmulator = true;
 
 
 Future<void> main() async {
-  // WidgetsFlutterBinding.ensureInitialized();
-  // await Firebase.initializeApp();
-
-  // await Firebase.initializeApp(
-  //   options: DefaultFirebaseOptions.currentPlatform,
-  // );
-  // if (shouldUseFirestoreEmulator) {
-  //   FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
-  // }
-
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const MyApp());
 }
-
-final moviesRef = FirebaseFirestore.instance
-    .collection('mostPopularMovies')
-    .withConverter<Media>(
-  fromFirestore: (snapshots, _) => Media.fromJson(snapshots.data()!),
-  toFirestore: (movie, _) => movie.toJson(),
-);
-
-Media testingMedia = moviesRef.doc('Dune') as Media;
-
-
 
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
@@ -41,15 +23,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Movie Picker',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
         primarySwatch: Colors.red,
         scaffoldBackgroundColor: Colors.grey[700]
       ),
@@ -61,15 +34,6 @@ class MyApp extends StatelessWidget {
 class MyHomePage extends StatefulWidget {
   const MyHomePage({Key? key, required this.title}) : super(key: key);
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
   final String title;
 
   @override
@@ -77,23 +41,23 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  CollectionReference movies = FirebaseFirestore.instance.collection("mostPopularMovies");
+  final ButtonStyle elevatedButtonStyle =
+  ElevatedButton.styleFrom(textStyle: const TextStyle(fontSize: 20));
+
   @override
   void initState(){
     super.initState();
   }
-  // add methods here
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // appBar: AppBar(
-      //
-      //   title: Text(widget.title),
-      // ),
       body: FutureBuilder(
-        future: getData(),
-        builder: (context, AsyncSnapshot<DocumentSnapshot> snapshot) {
+        future: movies.doc("Thor").get(),
+        builder: (context,  AsyncSnapshot<DocumentSnapshot> snapshot) {
           if(snapshot.connectionState == ConnectionState.done) {
             print(snapshot.hasData);
+            print(snapshot);
             return  Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -103,7 +67,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       height: 128,
                       child: Center(
                           child: Text(
-                              "${snapshot}",
+                              "${snapshot.data!.get("fullTitle")}",
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
@@ -116,22 +80,27 @@ class _MyHomePageState extends State<MyHomePage> {
                   Modal(
                     key: UniqueKey(),
                     modalTitle: "Description",
-                    description: "This is the description of the movie",
+                    description: "${snapshot.data!.get("description")}",
                   ),
                   Modal(
                     key: UniqueKey(),
                     modalTitle: "Cast",
-                    description: "This is the cast of the movie",
+                    description: "${snapshot.data!.get("cast")}",
                   ),
                   Modal(
                     key: UniqueKey(),
                     modalTitle: "Ratings",
-                    description: "This is the ratings of the movie",
+                    description: "${snapshot.data!.get("rating")}",
                   ),
-                  Modal(
-                    key: UniqueKey(),
-                    modalTitle: "Trailer",
-                    description: "This is the trailer of the movie",
+                  ElevatedButton(
+                    child: const Text("Trailer"),
+                    style: elevatedButtonStyle,
+                    onPressed: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context)=>  VideoPlayer(videoId: snapshot.data!.get("videoId")))
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 50),
@@ -185,76 +154,5 @@ class _MyHomePageState extends State<MyHomePage> {
       )
     );
   }
-
-  Future<DocumentSnapshot> getData() async {
-    await Firebase.initializeApp();
-    final moviesRef = FirebaseFirestore.instance
-        .collection('mostPopularMovies')
-        .withConverter<Media>(
-      fromFirestore: (snapshots, _) => Media.fromJson(snapshots.data()!),
-      toFirestore: (movie, _) => movie.toJson(),
-    );
-    print("help");
-    print(moviesRef.doc('Thor').get());
-    return await FirebaseFirestore.instance
-        .collection("mostPopularMovies")
-        .doc("Dune")
-        .get();
-  }
 }
 
-@immutable
-class Media {
-  const Media({
-    required this.cast,
-    required this.crew,
-    required this.description,
-    required this.fullTitle,
-    required this.image,
-    required this.imdbID,
-    required this.rating,
-    required this.title,
-    required this.videoId,
-    required this.year
-  });
-
-  Media.fromJson(Map<String, Object?> json)
-      : this(
-    cast: (json['cast']! as String),
-    crew: json['crew']! as String,
-    description: json['description']! as String,
-    fullTitle: json['fullTitle']! as String,
-    image: json['image']! as String,
-    imdbID: json['imdbID']! as String,
-    rating: json['rating']! as String,
-    title: json['title']! as String,
-    videoId: json['videoId']! as String,
-    year: json['year']! as String,
-  );
-
-  final String cast;
-  final String crew;
-  final String title;
-  final String year;
-  final String description;
-  final String rating;
-  final String imdbID;
-  final String fullTitle;
-  final String image;
-  final String videoId;
-
-  Map<String, Object?> toJson() {
-    return {
-      'cast': cast,
-      'crew': crew,
-      'description': description,
-      'fullTitle': fullTitle,
-      'image': image,
-      'imdbID': imdbID,
-      'rating': rating,
-      'title': title,
-      'videoId': videoId,
-      'year': year,
-    };
-  }
-}
